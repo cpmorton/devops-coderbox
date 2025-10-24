@@ -80,7 +80,7 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
     rm kubectl
 
 # Install Claude CLI - Anthropic's official CLI for interacting with Claude
-RUN npm install -g @anthropic-ai/claude-cli
+RUN npm install -g @anthropic-ai/claude-code
 
 # Install Starship prompt - a fast, customizable prompt for any shell
 RUN curl -sS https://starship.rs/install.sh | sh -s -- -y
