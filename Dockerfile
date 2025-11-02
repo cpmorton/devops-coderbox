@@ -147,35 +147,22 @@ RUN mkdir -p /home/coder/.config && \
 RUN mkdir -p /home/coder/.config/code-server
 
 # Configure code-server settings
-# We set it up to be accessible from any interface and disable authentication for local use
-# In production/teaching scenarios, you'd want to enable authentication
+# The password is set via environment variable CODE_SERVER_PASSWORD
+# which defaults to 'devops-coderbox' if not provided
 RUN echo 'bind-addr: 0.0.0.0:8080' > /home/coder/.config/code-server/config.yaml && \
     echo 'auth: password' >> /home/coder/.config/code-server/config.yaml && \
-    echo 'password: devops-coderbox' >> /home/coder/.config/code-server/config.yaml && \
     echo 'cert: false' >> /home/coder/.config/code-server/config.yaml
 
-# Create code-server user settings with vim extension enabled
-RUN mkdir -p /home/coder/.local/share/code-server/User && \
-    echo '{' > /home/coder/.local/share/code-server/User/settings.json && \
-    echo '  "workbench.colorTheme": "Default Dark Modern",' >> /home/coder/.local/share/code-server/User/settings.json && \
-    echo '  "editor.fontSize": 14,' >> /home/coder/.local/share/code-server/User/settings.json && \
-    echo '  "editor.tabSize": 2,' >> /home/coder/.local/share/code-server/User/settings.json && \
-    echo '  "editor.insertSpaces": true,' >> /home/coder/.local/share/code-server/User/settings.json && \
-    echo '  "files.trimTrailingWhitespace": true,' >> /home/coder/.local/share/code-server/User/settings.json && \
-    echo '  "editor.formatOnSave": true,' >> /home/coder/.local/share/code-server/User/settings.json && \
-    echo '  "go.useLanguageServer": true,' >> /home/coder/.local/share/code-server/User/settings.json && \
-    echo '  "go.toolsManagement.autoUpdate": true' >> /home/coder/.local/share/code-server/User/settings.json && \
-    echo '}' >> /home/coder/.local/share/code-server/User/settings.json
+# Create a startup script that sets the password from environment variable
+RUN echo '#!/bin/bash' > /home/coder/start-code-server.sh && \
+    echo '# Set code-server password from environment variable' >> /home/coder/start-code-server.sh && \
+    echo 'PASSWORD=${CODE_SERVER_PASSWORD:-devops-coderbox}' >> /home/coder/start-code-server.sh && \
+    echo 'echo "password: $PASSWORD" >> /home/coder/.config/code-server/config.yaml' >> /home/coder/start-code-server.sh && \
+    echo '/home/coder/welcome.sh' >> /home/coder/start-code-server.sh && \
+    echo 'exec code-server --bind-addr 0.0.0.0:8080 /home/coder/workspace' >> /home/coder/start-code-server.sh && \
+    chmod +x /home/coder/start-code-server.sh
 
-# Pre-install essential VS Code extensions for Go development
-# We install these at build time so students don't have to wait for extensions on first launch
-# The vim extension is included here for those who want vim keybindings
-RUN code-server --install-extension golang.go && \
-    code-server --install-extension vscodevim.vim && \
-    code-server --install-extension eamodio.gitlens && \
-    code-server --install-extension ms-azuretools.vscode-docker
-
-# Create a welcome script that displays connection information
+# Update the welcome script to show the environment variable pattern
 RUN echo '#!/bin/bash' > /home/coder/welcome.sh && \
     echo 'echo "╔═══════════════════════════════════════════════════════════════╗"' >> /home/coder/welcome.sh && \
     echo 'echo "║                  Welcome to devops-coderbox!                  ║"' >> /home/coder/welcome.sh && \
@@ -183,7 +170,7 @@ RUN echo '#!/bin/bash' > /home/coder/welcome.sh && \
     echo 'echo "╚═══════════════════════════════════════════════════════════════╝"' >> /home/coder/welcome.sh && \
     echo 'echo ""' >> /home/coder/welcome.sh && \
     echo 'echo "🌐 code-server is running at: http://localhost:8080"' >> /home/coder/welcome.sh && \
-    echo 'echo "🔑 Default password: devops-coderbox"' >> /home/coder/welcome.sh && \
+    echo 'echo "🔑 Password: ${CODE_SERVER_PASSWORD:-devops-coderbox}"' >> /home/coder/welcome.sh && \
     echo 'echo ""' >> /home/coder/welcome.sh && \
     echo 'echo "📁 Your workspace is mounted at: /home/coder/workspace"' >> /home/coder/welcome.sh && \
     echo 'echo "🐚 Shell: zsh with oh-my-zsh and Starship prompt"' >> /home/coder/welcome.sh && \
@@ -195,16 +182,19 @@ RUN echo '#!/bin/bash' > /home/coder/welcome.sh && \
     echo 'echo "   • gh (GitHub CLI)"' >> /home/coder/welcome.sh && \
     echo 'echo "   • claude (Anthropic CLI)"' >> /home/coder/welcome.sh && \
     echo 'echo ""' >> /home/coder/welcome.sh && \
-    echo 'echo "💡 First time setup:"' >> /home/coder/welcome.sh && \
-    echo 'echo "   Set your git identity by running this container with:"' >> /home/coder/welcome.sh && \
-    echo 'echo "   -e GIT_USER_NAME=\"Your Name\""' >> /home/coder/welcome.sh && \
-    echo 'echo "   -e GIT_USER_EMAIL=\"your.email@example.com\""' >> /home/coder/welcome.sh && \
-    echo 'echo ""' >> /home/coder/welcome.sh && \
+    echo '# Check for required environment variables' >> /home/coder/welcome.sh && \
+    echo 'if [ -z "$GIT_USER_NAME" ] || [ -z "$GIT_USER_EMAIL" ]; then' >> /home/coder/welcome.sh && \
+    echo '  echo "⚠️  WARNING: Git not configured!"' >> /home/coder/welcome.sh && \
+    echo '  echo "   Set GIT_USER_NAME and GIT_USER_EMAIL environment variables"' >> /home/coder/welcome.sh && \
+    echo '  echo ""' >> /home/coder/welcome.sh && \
+    echo 'fi' >> /home/coder/welcome.sh && \
+    echo 'if [ -z "$ANTHROPIC_API_KEY" ]; then' >> /home/coder/welcome.sh && \
+    echo '  echo "⚠️  WARNING: Claude Code not configured!"' >> /home/coder/welcome.sh && \
+    echo '  echo "   Set ANTHROPIC_API_KEY environment variable"' >> /home/coder/welcome.sh && \
+    echo '  echo "   Get your key from: https://console.anthropic.com"' >> /home/coder/welcome.sh && \
+    echo '  echo ""' >> /home/coder/welcome.sh && \
+    echo 'fi' >> /home/coder/welcome.sh && \
     chmod +x /home/coder/welcome.sh
 
-# Expose the code-server port
 EXPOSE 8080
-
-# The default command starts code-server and keeps the container running
-# Students can override this if they want to run something else
-CMD ["/bin/bash", "-c", "/home/coder/welcome.sh && code-server --bind-addr 0.0.0.0:8080 /home/coder/workspace"]
+CMD ["/home/coder/start-code-server.sh"]
