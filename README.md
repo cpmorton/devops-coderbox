@@ -146,6 +146,8 @@ EOF
 
 # Start everything
 docker compose up
+# Or, with podman (preserve the userid inside container
+podman-compose --pod-args '--userns keep-id' up
 ```
 
 Open http://localhost:8080 and use the password from your `.env` file.
@@ -167,9 +169,9 @@ docker run -it -p 8080:8080 \
 **Required environment variables:**
 - `GIT_USER_NAME` - Your name for git commits
 - `GIT_USER_EMAIL` - Your email for git commits  
-- `ANTHROPIC_API_KEY` - API key from https://console.anthropic.com
 
 **Optional environment variables:**
+- `ANTHROPIC_API_KEY` - API key from https://console.anthropic.com (do not use if you have a monthly subscription like pro or max...)
 - `CODE_SERVER_PASSWORD` - IDE password (defaults to "devops-coderbox" if not set)
 
 The container will display warnings if required variables are missing, but will still start. However, git and Claude Code won't work without proper configuration.
@@ -177,9 +179,6 @@ The container will display warnings if required variables are missing, but will 
 ## Customizing
 
 Fork this repository and modify the Dockerfile to match your preferences. Common customizations:
-
-**Change the password:**
-Find the line `password: devops-coderbox` in the Dockerfile and change it.
 
 **Add more tools:**
 Add RUN commands to install additional packages. For example, to add Python:

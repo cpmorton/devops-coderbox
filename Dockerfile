@@ -46,7 +46,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install Go - we use the official binary rather than apt to get the latest version
 # This gives us better control over the Go version and ensures consistency
-ENV GO_VERSION=1.23.2
+ENV GO_VERSION=1.25.3
 RUN wget -q https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz && \
     tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz && \
     rm go${GO_VERSION}.linux-amd64.tar.gz
@@ -60,7 +60,7 @@ ENV PATH="${GOPATH}/bin:${PATH}"
 
 # Install code-server - this is VS Code running in a browser
 # We install it globally so all users can access it
-ENV CODE_SERVER_VERSION=4.96.2
+ENV CODE_SERVER_VERSION=4.105.1
 RUN curl -fsSL https://code-server.dev/install.sh | sh -s -- --version=${CODE_SERVER_VERSION}
 
 # Install GitHub CLI - essential for working with GitHub from the terminal
@@ -143,8 +143,8 @@ RUN mkdir -p /home/coder/.config && \
     echo '[golang]' >> /home/coder/.config/starship.toml && \
     echo 'symbol = "🐹 "' >> /home/coder/.config/starship.toml
 
-# Create code-server configuration directory
-RUN mkdir -p /home/coder/.config/code-server
+# Create code-server configuration directories
+RUN mkdir -m 0700 -p /home/coder/.config/code-server /home/coder/.local/share/code-server/User
 
 # Configure code-server settings
 # The password is set via environment variable CODE_SERVER_PASSWORD
@@ -161,6 +161,14 @@ RUN echo '#!/bin/bash' > /home/coder/start-code-server.sh && \
     echo '/home/coder/welcome.sh' >> /home/coder/start-code-server.sh && \
     echo 'exec code-server --bind-addr 0.0.0.0:8080 /home/coder/workspace' >> /home/coder/start-code-server.sh && \
     chmod +x /home/coder/start-code-server.sh
+
+# Default dark theme:
+RUN echo '{' > /home/coder/.local/share/code-server/User/settings.json && \
+    echo '  "workbench.colorTheme": "Visual Studio Dark"' >> /home/coder/.local/share/code-server/User/settings.json && \
+    echo '}' >> /home/coder/.local/share/code-server/User/settings.json
+
+# Install Extensions:
+RUN code-server --install-extension anthropic.claude-code
 
 # Update the welcome script to show the environment variable pattern
 RUN echo '#!/bin/bash' > /home/coder/welcome.sh && \
@@ -186,12 +194,6 @@ RUN echo '#!/bin/bash' > /home/coder/welcome.sh && \
     echo 'if [ -z "$GIT_USER_NAME" ] || [ -z "$GIT_USER_EMAIL" ]; then' >> /home/coder/welcome.sh && \
     echo '  echo "⚠️  WARNING: Git not configured!"' >> /home/coder/welcome.sh && \
     echo '  echo "   Set GIT_USER_NAME and GIT_USER_EMAIL environment variables"' >> /home/coder/welcome.sh && \
-    echo '  echo ""' >> /home/coder/welcome.sh && \
-    echo 'fi' >> /home/coder/welcome.sh && \
-    echo 'if [ -z "$ANTHROPIC_API_KEY" ]; then' >> /home/coder/welcome.sh && \
-    echo '  echo "⚠️  WARNING: Claude Code not configured!"' >> /home/coder/welcome.sh && \
-    echo '  echo "   Set ANTHROPIC_API_KEY environment variable"' >> /home/coder/welcome.sh && \
-    echo '  echo "   Get your key from: https://console.anthropic.com"' >> /home/coder/welcome.sh && \
     echo '  echo ""' >> /home/coder/welcome.sh && \
     echo 'fi' >> /home/coder/welcome.sh && \
     chmod +x /home/coder/welcome.sh
